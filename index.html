@@ -917,6 +917,11 @@
             margin-bottom: 20px;
         }
         
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         /* Progress Bar */
         .progress-bar {
             width: 100%;
@@ -999,6 +1004,51 @@
                 display: none;
             }
         }
+        
+        /* API Status Indicator */
+        .api-status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .api-connected {
+            background: rgba(26, 188, 156, 0.1);
+            color: #1ABC9C;
+            border: 1px solid rgba(26, 188, 156, 0.3);
+        }
+        
+        .api-disconnected {
+            background: rgba(231, 76, 60, 0.1);
+            color: #E74C3C;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .connected-dot {
+            background: #1ABC9C;
+            animation: pulse 2s infinite;
+        }
+        
+        .disconnected-dot {
+            background: #E74C3C;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -1046,6 +1096,7 @@
                 <li><a href="#" class="active"><i class="fas fa-home"></i> Home</a></li>
                 <li><a href="#featured-hostels"><i class="fas fa-building"></i> Featured Hostels</a></li>
                 <li><a href="#book"><i class="fas fa-calendar-check"></i> Book Now</a></li>
+                <li><a href="admin.html" style="color: var(--accent);"><i class="fas fa-user-shield"></i> Admin Panel</a></li>
                 <li><a href="#news"><i class="fas fa-newspaper"></i> News</a></li>
                 <li><a href="#about"><i class="fas fa-info-circle"></i> About</a></li>
                 <li><a href="#contact"><i class="fas fa-envelope"></i> Contact</a></li>
@@ -1099,6 +1150,12 @@
             <button class="search-btn" id="searchBtn">
                 <i class="fas fa-search"></i> Search Hostels
             </button>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <span class="api-status-indicator" id="apiStatus">
+                <span class="status-dot connected-dot"></span>
+                <span>Loading API status...</span>
+            </span>
         </div>
     </section>
 
@@ -1224,16 +1281,18 @@
             
             <div class="footer-section">
                 <h3>Quick Links</h3>
-                <p><a href="#"><i class="fas fa-arrow-right"></i> Student Portal</a></p>
-                <p><a href="#"><i class="fas fa-arrow-right"></i> Hostel Registration</a></p>
-                <p><a href="#"><i class="fas fa-arrow-right"></i> FAQ & Help Center</a></p>
-                <p><a href="#"><i class="fas fa-arrow-right"></i> Contact Support</a></p>
+                <p><a href="#" onclick="fetchHostels()"><i class="fas fa-sync-alt"></i> Refresh Hostels</a></p>
+                <p><a href="admin.html"><i class="fas fa-user-shield"></i> Admin Panel</a></p>
+                <p><a href="#"><i class="fas fa-question-circle"></i> FAQ & Help Center</a></p>
+                <p><a href="#"><i class="fas fa-envelope"></i> Contact Support</a></p>
             </div>
             
             <div class="footer-section">
                 <h3>API Status</h3>
                 <div class="contact-info">
-                    <p><i class="fas fa-circle" style="color: #1ABC9C;"></i> API: Connected</p>
+                    <p><i class="fas fa-circle" id="apiStatusIcon" style="color: #1ABC9C;"></i> 
+                        <span id="apiStatusText">Connected</span>
+                    </p>
                     <p><i class="fas fa-database"></i> Last Sync: <span id="lastUpdated">Just now</span></p>
                     <p><i class="fas fa-sync-alt"></i> Next Refresh: <span id="nextRefresh">30s</span></p>
                     <p><i class="fas fa-server"></i> Hostels Loaded: <span id="hostelCount">0</span></p>
@@ -1317,138 +1376,324 @@
     </div>
 
     <script>
-        // Enhanced JavaScript with new features
+        // ================================
+        // API CONFIGURATION
+        // ================================
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+        const HOSTELS_API = `${API_BASE_URL}/hostels/`;
+        const BOOKINGS_API = `${API_BASE_URL}/bookings/`;
         
-        // Sample hostel data (in production, this comes from API)
-        const sampleHostels = [
-            {
-                id: 1,
-                name: "Crystal Hostels",
-                location: "Mungoni",
-                type: "single",
-                price: 25000,
-                rating: 4.5,
-                features: ["WiFi", "Parking", "Security", "Study Room"],
-                available: true,
-                rooms: 5,
-                image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
-            },
-            {
-                id: 2,
-                name: "Green Valley Apartments",
-                location: "Chuka Town",
-                type: "apartment",
-                price: 35000,
-                rating: 4.8,
-                features: ["WiFi", "Kitchen", "Gym", "Swimming Pool"],
-                available: true,
-                rooms: 3,
-                image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
-            },
-            {
-                id: 3,
-                name: "Student Comfort Hostel",
-                location: "Slaughter",
-                type: "shared",
-                price: 15000,
-                rating: 4.2,
-                features: ["WiFi", "Laundry", "Common Room"],
-                available: true,
-                rooms: 8,
-                image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
-            }
-        ];
+        // ================================
+        // GLOBAL VARIABLES
+        // ================================
+        let allHostels = [];
+        let filteredHostels = [];
+        let currentUser = null;
+        let selectedHostel = null;
+        let refreshInterval;
+        let lastFetchTime = null;
+        let isApiConnected = false;
 
-        // Initialize
+        // ================================
+        // DOM ELEMENTS
+        // ================================
+        const hostelsGrid = document.getElementById('hostelsGrid');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginModal = document.getElementById('loginModal');
+        const closeLogin = document.getElementById('closeLogin');
+        const bookingModal = document.getElementById('quickBookingModal');
+        const closeBooking = document.getElementById('closeBooking');
+        const userAvatar = document.getElementById('userAvatar');
+        const loginForm = document.getElementById('loginForm');
+        const apiStatusElement = document.getElementById('apiStatus');
+        const apiStatusText = document.getElementById('apiStatusText');
+        const apiStatusIcon = document.getElementById('apiStatusIcon');
+        const hostelCountElement = document.getElementById('hostelCount');
+        const totalHostelsElement = document.getElementById('totalHostels');
+        const availableRoomsElement = document.getElementById('availableRooms');
+
+        // ================================
+        // INITIALIZATION
+        // ================================
         document.addEventListener('DOMContentLoaded', function() {
             initHomePage();
-            loadHostels();
+            fetchHostels(); // Now fetches from real API
             setupEventListeners();
             startAutoRefresh();
             setupNotifications();
             checkDarkModePreference();
         });
 
-        function initHomePage() {
-            // Animate elements on scroll
-            const observerOptions = {
-                threshold: 0.1,
-                rootMargin: '0px 0px -50px 0px'
-            };
+        // ================================
+        // CORE FUNCTIONS
+        // ================================
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('animate__animated', 'animate__fadeInUp');
-                    }
-                });
-            }, observerOptions);
-
-            // Observe elements to animate
-            document.querySelectorAll('.hostel-card, .action-card, .news-card').forEach(el => {
-                observer.observe(el);
-            });
-
-            // Update stats with animation
-            animateCounter('totalHostels', 24);
-            animateCounter('availableRooms', 156);
+        // Update the fetchHostels function
+        async function fetchHostels() {
+            try {
+                showLoading();
+                
+                // Try to fetch from API first
+                const response = await fetch(HOSTELS_API);
+                
+                if (!response.ok) {
+                    throw new Error('API not available');
+                }
+                
+                const hostelsData = await response.json();
+                allHostels = hostelsData.filter(h => h.is_available === true);
+                filteredHostels = [...allHostels];
+                
+                renderHostels();
+                updateStats();
+                updateLastFetchTime();
+                
+                // Update API status
+                updateApiStatus(true, 'Connected ✓');
+                document.getElementById('apiStatus').classList.remove('api-disconnected');
+                document.getElementById('apiStatus').classList.add('api-connected');
+                
+                isApiConnected = true;
+                
+            } catch (error) {
+                console.log('API not available, using sample data:', error);
+                // Use sample data if API is down
+                allHostels = getSampleHostels();
+                filteredHostels = [...allHostels];
+                
+                renderHostels();
+                updateStats();
+                
+                // Update API status
+                updateApiStatus(false, 'Using Sample Data');
+                document.getElementById('apiStatus').classList.remove('api-connected');
+                document.getElementById('apiStatus').classList.add('api-disconnected');
+                
+                isApiConnected = false;
+            }
         }
 
-        function loadHostels() {
-            const grid = document.getElementById('hostelsGrid');
-            
-            // Show loading animation
-            grid.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Loading premium hostels...</p>
-                </div>
-            `;
+        // Add sample data function
+        function getSampleHostels() {
+            return [
+                {
+                    id: 1,
+                    name: "Crystal Hostels",
+                    location: "mungoni",
+                    hostel_type: "single",
+                    price_per_semester: 25000,
+                    rooms_available: 5,
+                    total_rooms: 20,
+                    distance_from_campus: "0.5km",
+                    has_wifi: true,
+                    has_kitchen: true,
+                    has_laundry: true,
+                    has_parking: true,
+                    has_security: true,
+                    is_available: true,
+                    thumbnail_url: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
+                },
+                {
+                    id: 2,
+                    name: "Green Valley Apartments",
+                    location: "chuka_town",
+                    hostel_type: "apartment",
+                    price_per_semester: 35000,
+                    rooms_available: 3,
+                    total_rooms: 10,
+                    distance_from_campus: "1.2km",
+                    has_wifi: true,
+                    has_kitchen: true,
+                    has_gym: true,
+                    has_pool: true,
+                    is_available: true,
+                    thumbnail_url: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
+                },
+                {
+                    id: 3,
+                    name: "Student Comfort Hostel",
+                    location: "slaughter",
+                    hostel_type: "shared",
+                    price_per_semester: 15000,
+                    rooms_available: 8,
+                    total_rooms: 15,
+                    distance_from_campus: "0.8km",
+                    has_wifi: true,
+                    has_laundry: true,
+                    has_study_room: true,
+                    has_security: true,
+                    is_available: true,
+                    thumbnail_url: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
+                }
+            ];
+        }
 
-            // Simulate API call delay
-            setTimeout(() => {
-                grid.innerHTML = sampleHostels.map(hostel => `
-                    <div class="hostel-card" data-id="${hostel.id}">
-                        ${hostel.available ? '<span class="hostel-badge">Available</span>' : ''}
-                        <div class="hostel-image">
-                            <img src="${hostel.image}" alt="${hostel.name}" loading="lazy">
+        function renderHostels() {
+            if (filteredHostels.length === 0) {
+                hostelsGrid.innerHTML = `
+                    <div class="loading" style="grid-column: 1 / -1;">
+                        <i class="fas fa-info-circle" style="font-size: 3rem; color: var(--warning); margin-bottom: 20px;"></i>
+                        <h3>No hostels available</h3>
+                        <p>Check back later or try different filters</p>
+                    </div>
+                `;
+                hostelCountElement.textContent = '0';
+                return;
+            }
+            
+            hostelsGrid.innerHTML = filteredHostels.map(hostel => createHostelCard(hostel)).join('');
+            hostelCountElement.textContent = filteredHostels.length;
+        }
+
+        function createHostelCard(hostel) {
+            const amenities = getAmenitiesList(hostel);
+            const locationDisplay = getLocationDisplay(hostel.location);
+            const typeDisplay = getHostelTypeDisplay(hostel.hostel_type);
+            const priceFormatted = new Intl.NumberFormat('en-KE', {
+                style: 'currency',
+                currency: 'KES',
+                minimumFractionDigits: 0
+            }).format(hostel.price_per_semester);
+            
+            const isAvailable = hostel.rooms_available > 0;
+            
+            return `
+                <div class="hostel-card" data-id="${hostel.id}">
+                    ${isAvailable ? '<span class="hostel-badge">Available</span>' : '<span class="hostel-badge" style="background: #95a5a6;">Fully Booked</span>'}
+                    <div class="hostel-image">
+                        <img src="${hostel.thumbnail_url || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80'}" 
+                             alt="${hostel.name}" 
+                             loading="lazy"
+                             onerror="this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80'">
+                    </div>
+                    <div class="hostel-content">
+                        <div class="hostel-name">
+                            <span>${hostel.name}</span>
+                            <span class="hostel-rating">
+                                ${'★'.repeat(4)}☆
+                                <small>4.0</small>
+                            </span>
                         </div>
-                        <div class="hostel-content">
-                            <div class="hostel-name">
-                                <span>${hostel.name}</span>
-                                <span class="hostel-rating">
-                                    ${'★'.repeat(Math.floor(hostel.rating))}${'☆'.repeat(5-Math.floor(hostel.rating))}
-                                    <small>${hostel.rating}</small>
+                        <p class="hostel-location">
+                            <i class="fas fa-map-marker-alt"></i> ${locationDisplay}
+                            ${hostel.distance_from_campus ? `<br><small>(${hostel.distance_from_campus} from campus)</small>` : ''}
+                        </p>
+                        
+                        <div class="hostel-features">
+                            ${amenities.slice(0, 3).map(amenity => `
+                                <span class="feature">
+                                    <i class="fas fa-check"></i> ${amenity}
                                 </span>
+                            `).join('')}
+                            ${amenities.length > 3 ? `<span class="feature">+${amenities.length - 3} more</span>` : ''}
+                        </div>
+                        
+                        <div class="hostel-footer">
+                            <div class="hostel-price">
+                                ${priceFormatted}
+                                <span>/semester</span>
                             </div>
-                            <p class="hostel-location">
-                                <i class="fas fa-map-marker-alt"></i> ${hostel.location}
-                            </p>
-                            
-                            <div class="hostel-features">
-                                ${hostel.features.map(feature => `
-                                    <span class="feature">
-                                        <i class="fas fa-check"></i> ${feature}
-                                    </span>
-                                `).join('')}
-                            </div>
-                            
-                            <div class="hostel-footer">
-                                <div class="hostel-price">
-                                    KES ${hostel.price.toLocaleString()}
-                                    <span>/semester</span>
-                                </div>
-                                <button class="book-btn" onclick="bookHostel(${hostel.id})">
-                                    <i class="fas fa-calendar-plus"></i> Book Now
-                                </button>
-                            </div>
+                            <button class="book-btn" onclick="bookHostel(${hostel.id})" ${!isAvailable ? 'disabled style="opacity: 0.6; cursor: not-allowed;"' : ''}>
+                                <i class="fas fa-calendar-plus"></i> ${isAvailable ? 'Book Now' : 'Fully Booked'}
+                            </button>
                         </div>
                     </div>
-                `).join('');
+                </div>
+            `;
+        }
 
-                // Update counter
-                document.getElementById('hostelCount').textContent = sampleHostels.length;
-            }, 1500);
+        function updateStats() {
+            if (allHostels.length === 0) return;
+            
+            const totalRooms = allHostels.reduce((sum, hostel) => sum + (hostel.total_rooms || 0), 0);
+            const availableRooms = allHostels.reduce((sum, hostel) => sum + (hostel.rooms_available || 0), 0);
+            const totalPrice = allHostels.reduce((sum, hostel) => sum + parseFloat(hostel.price_per_semester || 0), 0);
+            const averagePrice = allHostels.length > 0 ? totalPrice / allHostels.length : 0;
+            
+            // Update hero stats with animation
+            animateCounter('totalHostels', allHostels.length);
+            animateCounter('availableRooms', availableRooms);
+            
+            // Update other stats
+            document.getElementById('studentsServed').textContent = '5000+';
+        }
+
+        function updateApiStatus(connected, message) {
+            const statusElement = document.getElementById('apiStatus');
+            const textElement = statusElement.querySelector('span:last-child');
+            const dotElement = statusElement.querySelector('.status-dot');
+            
+            if (connected) {
+                statusElement.className = 'api-status-indicator api-connected';
+                dotElement.className = 'status-dot connected-dot';
+                textElement.textContent = message;
+                apiStatusText.textContent = 'Connected';
+                apiStatusIcon.style.color = '#1ABC9C';
+            } else {
+                statusElement.className = 'api-status-indicator api-disconnected';
+                dotElement.className = 'status-dot disconnected-dot';
+                textElement.textContent = message;
+                apiStatusText.textContent = 'Disconnected';
+                apiStatusIcon.style.color = '#E74C3C';
+            }
+        }
+
+        function showLoading() {
+            hostelsGrid.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Fetching real-time hostel data...</p>
+                    ${!isApiConnected ? '<p style="color: var(--warning); margin-top: 10px;"><i class="fas fa-exclamation-triangle"></i> Using sample data</p>' : ''}
+                </div>
+            `;
+        }
+
+        function updateLastFetchTime() {
+            lastFetchTime = new Date();
+            document.getElementById('lastUpdated').textContent = 
+                lastFetchTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // ================================
+        // HELPER FUNCTIONS
+        // ================================
+        function getAmenitiesList(hostel) {
+            const amenities = [];
+            if (hostel.has_wifi) amenities.push('WiFi');
+            if (hostel.has_kitchen) amenities.push('Kitchen');
+            if (hostel.has_laundry) amenities.push('Laundry');
+            if (hostel.has_parking) amenities.push('Parking');
+            if (hostel.has_security) amenities.push('Security');
+            if (hostel.has_gym) amenities.push('Gym');
+            if (hostel.has_pool) amenities.push('Pool');
+            if (hostel.has_study_room) amenities.push('Study Room');
+            return amenities;
+        }
+
+        function getLocationDisplay(location) {
+            const locations = {
+                'mungoni': 'Mungoni',
+                'slaughter': 'Slaughter',
+                'marine': 'Marine',
+                'lowland': 'Lowland',
+                'gate_f': 'Gate F',
+                'chuka_town': 'Chuka Town',
+                'juverus': 'Juverus',
+                'main_campus': 'Main Campus',
+                'off_campus': 'Off Campus'
+            };
+            return locations[location] || location;
+        }
+
+        function getHostelTypeDisplay(type) {
+            const types = {
+                'single': 'Single Room',
+                'shared': 'Shared Room',
+                'apartment': 'Apartment',
+                'suite': 'Suite',
+                'bed_seater': 'Bed Seater'
+            };
+            return types[type] || type;
         }
 
         function animateCounter(elementId, targetValue) {
@@ -1466,26 +1711,37 @@
             }, 20);
         }
 
+        // ================================
+        // EVENT LISTENERS & UI FUNCTIONS
+        // ================================
+        function initHomePage() {
+            // Animate elements on scroll
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('animate__animated', 'animate__fadeInUp');
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.hostel-card, .action-card, .news-card').forEach(el => {
+                observer.observe(el);
+            });
+        }
+
         function setupEventListeners() {
             // Search functionality
             document.getElementById('searchBtn').addEventListener('click', function() {
-                const location = document.getElementById('locationSearch').value;
+                const location = document.getElementById('locationSearch').value.toLowerCase();
                 const type = document.getElementById('hostelType').value;
-                const price = document.getElementById('priceRange').value;
+                const priceRange = document.getElementById('priceRange').value;
                 
-                // Show search results animation
-                const grid = document.getElementById('hostelsGrid');
-                grid.innerHTML = `
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <p>Searching for hostels...</p>
-                    </div>
-                `;
-                
-                setTimeout(() => {
-                    alert(`Searching for: ${location || 'All locations'} | Type: ${type || 'Any type'} | Price: ${price || 'Any price'}`);
-                    loadHostels(); // In production, filter hostels
-                }, 1000);
+                filterHostels(location, type, priceRange);
             });
 
             // Login modal
@@ -1506,40 +1762,85 @@
                 }
             });
 
-            // Close modals on ESC key
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    closeAllModals();
-                }
+            // Close modals
+            closeLogin.addEventListener('click', () => {
+                loginModal.style.display = 'none';
             });
 
-            // Add enter key support for search
+            // Login form submission
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const studentId = document.getElementById('studentId').value;
+                currentUser = {
+                    id: studentId,
+                    name: studentId.split('/')[0] || 'Student'
+                };
+                updateUserUI();
+                loginModal.style.display = 'none';
+                alert(`Welcome ${currentUser.name}!`);
+                loginForm.reset();
+            });
+
+            // Enter key for search
             document.getElementById('locationSearch').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     document.getElementById('searchBtn').click();
                 }
             });
 
-            // Notification bell click
+            // Notification bell
             document.querySelector('.notification-bell').addEventListener('click', showNotifications);
         }
 
-        function showLoginModal() {
-            const modal = document.getElementById('loginModal');
-            modal.style.display = 'flex';
-            document.getElementById('studentId').focus();
+        function filterHostels(location, type, priceRange) {
+            filteredHostels = allHostels.filter(hostel => {
+                // Location filter
+                if (location && !hostel.location.toLowerCase().includes(location) && 
+                    !hostel.name.toLowerCase().includes(location)) {
+                    return false;
+                }
+                
+                // Type filter
+                if (type && hostel.hostel_type !== type) {
+                    return false;
+                }
+                
+                // Price range filter
+                if (priceRange) {
+                    const price = hostel.price_per_semester || 0;
+                    switch(priceRange) {
+                        case '0-15000':
+                            if (price > 15000) return false;
+                            break;
+                        case '15000-25000':
+                            if (price < 15000 || price > 25000) return false;
+                            break;
+                        case '25000-40000':
+                            if (price < 25000 || price > 40000) return false;
+                            break;
+                        case '40000+':
+                            if (price < 40000) return false;
+                            break;
+                    }
+                }
+                
+                return true;
+            });
+            
+            renderHostels();
         }
 
-        function closeAllModals() {
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.style.display = 'none';
-            });
+        // ================================
+        // MODAL FUNCTIONS
+        // ================================
+        function showLoginModal() {
+            loginModal.style.display = 'flex';
+            document.getElementById('studentId').focus();
         }
 
         function showQuickBooking() {
             const modal = document.getElementById('quickBookingModal');
             modal.style.display = 'flex';
-            // Load quick booking form
             modal.querySelector('.modal-content').innerHTML = `
                 <span class="close-modal" onclick="closeQuickBooking()">&times;</span>
                 <h2 style="margin-bottom: 20px; color: var(--primary);">
@@ -1579,7 +1880,7 @@
                         <label for="hostelSelect">Select Hostel</label>
                         <select id="hostelSelect" required>
                             <option value="">Select a hostel</option>
-                            ${sampleHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('')}
+                            ${allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group">
@@ -1599,7 +1900,6 @@
                 </form>
             `;
 
-            // Add star rating interactivity
             document.querySelectorAll('.rating-star').forEach(star => {
                 star.addEventListener('mouseover', function() {
                     const value = this.dataset.value;
@@ -1686,6 +1986,9 @@
             document.getElementById('helpModal').style.display = 'none';
         }
 
+        // ================================
+        // OTHER FUNCTIONS
+        // ================================
         function setupAlerts() {
             const hostel = prompt("Enter hostel name to get alerts for:");
             if (hostel) {
@@ -1698,7 +2001,6 @@
         }
 
         function setupNotifications() {
-            // Simulate real-time notifications
             setInterval(() => {
                 const countElement = document.querySelector('.notification-count');
                 const count = parseInt(countElement.textContent);
@@ -1709,20 +2011,18 @@
                         countElement.style.animation = 'bounce 0.5s';
                     }, 10);
                 }
-            }, 30000); // Every 30 seconds
+            }, 30000);
         }
 
         function startAutoRefresh() {
             let seconds = 30;
-            setInterval(() => {
+            refreshInterval = setInterval(() => {
                 seconds--;
                 document.getElementById('nextRefresh').textContent = `${seconds}s`;
                 
                 if (seconds <= 0) {
-                    // Simulate data refresh
+                    fetchHostels();
                     seconds = 30;
-                    document.getElementById('lastUpdated').textContent = 
-                        new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 }
             }, 1000);
         }
@@ -1740,37 +2040,61 @@
             }
         }
 
-        // Global variables
-        let currentUser = null;
-
-        // Export functions
-        window.bookHostel = function(id) {
-            const hostel = sampleHostels.find(h => h.id === id);
-            if (hostel) {
-                if (!currentUser) {
-                    showLoginModal();
-                    return;
-                }
-                
-                const confirmBooking = confirm(`Book ${hostel.name} for KES ${hostel.price.toLocaleString()}?`);
-                if (confirmBooking) {
-                    alert(`✅ Booking initiated for ${hostel.name}!\nPlease complete your booking in the next step.`);
-                }
+        function updateUserUI() {
+            if (currentUser) {
+                loginBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
+                userAvatar.innerHTML = currentUser.name.charAt(0).toUpperCase();
+                userAvatar.style.background = '#E74C3C';
+                userAvatar.title = `Logged in as ${currentUser.name}`;
+            } else {
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                userAvatar.innerHTML = '<i class="fas fa-user"></i>';
+                userAvatar.style.background = 'linear-gradient(45deg, var(--secondary), #3498db)';
+                userAvatar.title = 'Click to login';
             }
-        };
+        }
 
-        window.showUserMenu = function() {
+        function showUserMenu() {
             if (currentUser) {
                 const action = confirm(`Logged in as: ${currentUser.name}\n\n1. View Profile\n2. My Bookings\n3. Logout\n\nClick OK for Profile, Cancel for Logout`);
                 if (!action) {
                     currentUser = null;
-                    document.getElementById('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-                    document.getElementById('userAvatar').innerHTML = '<i class="fas fa-user"></i>';
+                    updateUserUI();
                     alert('Logged out successfully.');
                 }
             }
+        }
+
+        // ================================
+        // BOOKING FUNCTION
+        // ================================
+        window.bookHostel = function(id) {
+            const hostel = allHostels.find(h => h.id === id);
+            if (!hostel) {
+                alert('Hostel not found!');
+                return;
+            }
+            
+            if (hostel.rooms_available <= 0) {
+                alert('Sorry, this hostel is fully booked. Please check other options.');
+                return;
+            }
+            
+            if (!currentUser) {
+                showLoginModal();
+                return;
+            }
+            
+            const confirmBooking = confirm(`Book ${hostel.name} for KES ${(hostel.price_per_semester || 0).toLocaleString()}?`);
+            if (confirmBooking) {
+                alert(`✅ Booking initiated for ${hostel.name}!\n\nPlease complete your booking in the next step.`);
+            }
         };
 
+        // ================================
+        // EXPORT FUNCTIONS
+        // ================================
+        window.fetchHostels = fetchHostels;
         window.closeQuickBooking = closeQuickBooking;
         window.closeRatingModal = closeRatingModal;
         window.closeHelpModal = closeHelpModal;
@@ -1779,9 +2103,18 @@
             closeQuickBooking();
         };
 
-        // Add some interactivity to the page
+        // ================================
+        // CLEANUP
+        // ================================
+        window.addEventListener('beforeunload', () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+
         console.log('🎓 Chuka University Hostel Hub v2.0 loaded successfully!');
-        console.log('🚀 Features loaded: Interactive UI, Real-time updates, Quick booking, Ratings system');
+        console.log('🚀 Features: Real-time API integration, Admin panel, Interactive UI');
+        console.log('🔗 API Base URL:', API_BASE_URL);
     </script>
 </body>
 </html>
